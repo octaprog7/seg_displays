@@ -26,7 +26,7 @@ class VK16K33Display(CharDisplay):
     # сегменты "abcdef12" образуют младший байт, сегменты "hijmlk" образуют старший байт значения.
     # p имя сегмента десятичной точки
     _valid_seg_names = "abcdef12hijmlkp"
-    _seg_index_map = {c: i for i, c in enumerate(_valid_seg_names)}
+    _seg_values_map = {c: 1 << i for i, c in enumerate(_valid_seg_names)}
 
     @staticmethod
     def segments_to_raw(segments_on: str, dp: bool = False) -> int:
@@ -37,10 +37,10 @@ class VK16K33Display(CharDisplay):
         :return: Двух байтное значение для записи по адресу символа 14-ти сегментного индикатора!
         """
         ret_val = 0
-        index_map = VK16K33Display._seg_index_map
+        values_map = VK16K33Display._seg_values_map
         for segm_name in segments_on:
-            seg_index = index_map[segm_name]
-            ret_val |= 1 << seg_index
+            segment_value = values_map[segm_name]
+            ret_val |= segment_value
         if dp:
             ret_val |= 0b0100_0000_0000_0000
         return ret_val
