@@ -94,7 +94,7 @@ class VK16K33Display(CharDisplay):
         if not isinstance(char_with_dp, str) or 0 == len(char_with_dp) or len(char_with_dp) > 2:
             raise ValueError("Ожидается строка длиной 1 или 2.")
 
-        if not non_printable in range(0x100): # для семи (8-ми если учесть десятичную точку) сегментов достаточно одного байта!
+        if not non_printable in range(0xFFFF): # двух байтное значение
             raise ValueError(f"Неверное значение параметра non_printable: {non_printable}!")
 
         two_char = 2 == len(char_with_dp)
