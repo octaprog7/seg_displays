@@ -122,6 +122,10 @@ SPI является полнодуплексным интерфейсом, чт
 Алфавит (RU или EN) дисплея, на основе VK16K33, можно переключить изменив значение переменной lang в
 файле vk16k33display.py с 'ru' на 'en' или наоборот.
 
+## Поддерживаемые символы
+Для дисплея на основе MAX7219 смотрите код метода MAX7219Display.ascii_to_seven_segment(...) в файле max7219display.py.
+Для дисплея на основе VK16K33 смотрите код метода VK16K33Display.ascii_to_14_seg(...) в файле vk16k33display.py.
+
 # Видео
 Дисплей на основе MAX7219:
     	https://rutube.ru/video/private/c39765b5ce80ed672d8cccee684aeb68/?p=pLJFA6RPWNpP_sEJxQqijA
