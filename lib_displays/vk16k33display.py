@@ -26,52 +26,34 @@ class VK16K33Display(CharDisplay):
     # сегменты "abcdef12" образуют младший байт, сегменты "hijmlk" образуют старший байт значения.
     # p имя сегмента десятичной точки
     _valid_seg_names = "abcdef12hijmlkp"
-    _seg_values_map = {c: 1 << i for i, c in enumerate(_valid_seg_names)}
+    _seg_values_map = {c: i for i, c in enumerate(_valid_seg_names)}
 
-    @staticmethod
-    def segments_to_raw(segments_on: str, dp: bool = False) -> int:
-        """
-        Преобразует имена включенных сегментов 14-ти сегментного индикатора в двухбайтное число для записи по адресу символа индикатора.
-        :param segments_on - Строка с правильными именами (смотри valid_seg_names) сегментов 14-ти сегментного индикатора, которые должны быть включены!
-        :param dp - Десятичная точка, включена если Истина.
-        :return: Двух байтное значение для записи по адресу символа 14-ти сегментного индикатора!
-        """
-        ret_val = 0
-        values_map = VK16K33Display._seg_values_map
-        for segm_name in segments_on:
-            segment_value = values_map[segm_name]
-            ret_val |= segment_value
-        if dp:
-            ret_val |= 0b0100_0000_0000_0000
-        return ret_val
+    def get_segment_nbit(self, seg_name: str) -> int:
+        """Возвращает номер бита, соответствующий сегменту с именем seg_name. Имя сегмента имеет длину один символ!"""
+        return  VK16K33Display._seg_values_map[seg_name]
 
-    @staticmethod
-    def ascii_to_14_seg(char_with_dp: str, non_printable: int, lang_dict: dict = _lang_dict) -> int:
-        """По коду символа char_with_dp возвращает код сегментов 14-ти сегментного знакоместа.
-        :param char_with_dp: Строка из одного или двух символов. Первый символ выводится на дисплее, Второй символ должен быть точкой, если он есть!
-        :param non_printable: Сырое значение для символа-замены тех, которых невозможно узнаваемо напечатать.
-        :param lang_dict: Словарь символов: символ -> строка включённых сегментов
-        :return: Двух байтное значение для записи по адресу символа 14-ти сегментного индикатора!
-        """
-
+    def get_segments_of_symbol(self, char_with_dp: str) -> str:
         # содержит общие символы
-        common_numbers_symbols = {
+        seg_map_digits = {
             # Цифры 0 - 9
             '0': "abcdefjm",
             '1': "bcj",
             '2': "ab2md",
             '3': "abcd2",
             '4': "f12bc",
-            '5': "af12cd",
+            '5': "ah2cd",
             '6': "acdef12",
             '7': "ajm12",
             '8': "abcdef12",
             '9': "abcdf12",
         }
+        dp_seg_name = 'p'
+
+        segment_map_letters =_lang_dict
 
         spec_symbols = {
             # спецсимволы и знаки препинания!
-            '.': "p",
+            '.': dp_seg_name,
             ' ': "",
             '+': "12il",
             '-': "12",
@@ -88,8 +70,8 @@ class VK16K33Display(CharDisplay):
             '$': "af12cdil",
             '%': "mj1fh2cl",
             '^': "fh",
-            '°' : "ahj" # попытка отобразись символ градуса
-        } # spec_symbols = {
+            '°': "ahj"  # попытка отобразись символ градуса
+        }  # spec_symbols = {
 
         if not isinstance(char_with_dp, str) or 0 == len(char_with_dp) or len(char_with_dp) > 2:
             raise ValueError("Ожидается строка длиной 1 или 2.")
@@ -99,30 +81,16 @@ class VK16K33Display(CharDisplay):
         if two_char and '.' != char_with_dp[1]:
             raise ValueError("Если длина равна 2 символам, то вторым символом должна быть '.', десятичная точка!")
         char = char_with_dp[0]
-        decimal_point = two_char
+        #decimal_point = two_char
 
         if char.isdigit():  # цифра 0..9
-            return VK16K33Display.segments_to_raw(common_numbers_symbols[char], decimal_point)
+            return seg_map_digits.get(char, self.get_non_printable())
 
-        segments = spec_symbols.get(char)
-        if not segments is None:
-            return VK16K33Display.segments_to_raw(segments, decimal_point)
+        if char.isalpha():  # буквы
+            return segment_map_letters.get(char, self.get_non_printable())
+        # все остальные символы
+        return spec_symbols.get(char, self.get_non_printable())
 
-        segments = lang_dict.get(char, non_printable)
-        if non_printable == segments:
-            # символа нет в словаре, увы!
-            if char.isalpha():
-                # это буквенный символ, меняю строчную на прописную в попытке вернуть хоть что-то,
-                # кроме non_printable!
-                same_char = char.upper() if char.islower() else char
-                segments = lang_dict.get(same_char, None)
-                if segments is None:
-                    return non_printable  # не фартануло!
-                # похожий символ найден, возврат соответствующих ему, включенных сегментов
-                return VK16K33Display.segments_to_raw(segments, decimal_point)
-            return non_printable
-        # символ найден, возврат соответствующих ему, включенных сегментов
-        return VK16K33Display.segments_to_raw(segments, decimal_point)
 
     def show_by_pos(self, chars: str, x: int = 0, y: int = 0):
         """Выводит на дисплей коды символов из chars.
@@ -131,16 +99,17 @@ class VK16K33Display(CharDisplay):
         :param y - не используется, так как всего 8 знакомест;
         Хотите изменять положение символа, формируйте строку заранее!"""
         gen = CharDisplay.gen_chars_with_dp
-        cols = self.get_columns()
-        ascii_to_seg = VK16K33Display.ascii_to_14_seg
-        np_char = self.get_non_printable()
+        val_rng = range(self.get_columns())
+        get_segments = self.get_segments_of_symbol
+        seg_to_raw = self.segments_to_raw
         for cnt, char_with_dp in enumerate(gen(chars)):
             pos = x + cnt
-            if pos < 0 or pos >= cols:
+            if not pos in val_rng:
                 break
-            symb_code = ascii_to_seg(char_with_dp, np_char)
+            segments = get_segments(char_with_dp)
+            symb_code = seg_to_raw(segments)
             self._controller.set_char(symb_code, pos, 0)
 
     def init(self, value: int = 0):
         """Инициализация"""
-        self.set_non_printable(0x3808)
+        self.set_non_printable('12ad')

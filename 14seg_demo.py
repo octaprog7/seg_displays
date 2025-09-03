@@ -34,15 +34,18 @@ if __name__ == "__main__":
     display_controller.init(columns=4, rows=1)
     display_controller.set_brightness(10)
     display = VK16K33Display(display_controller)
+    display.init()
     #
     demo_source_14seg = "0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz"
+    np = display.get_non_printable()
+    print(f"non printable: {np}")
     #
     chunk_length = display.get_columns()
     start = 0
     cnt = 0
     for chunk in get_chunk(demo_source_14seg, start, chunk_length):
         display.show_by_pos(chunk, 0)
-        if 5 == cnt:    # 1 - моргание дисплея с частотой 2 Гц
+        if 5 == cnt:    # 2 - моргание дисплея с частотой 2 Гц
             display_controller.blink(1)
         cnt+=1
         wait_func(3000)

@@ -1,11 +1,34 @@
 from collections import namedtuple
 from lib_displays.display_controller_mod import ICharDisplayController
 from sensor_pack_2.base_sensor import check_value
+import micropython
 
 # свойства символьного дисплея
 base_display_prop = namedtuple("base_display_prop", "columns rows")
 # прямоугольная область
 rect_area = namedtuple("rect_area", "x0 y0 x1 y1")
+
+'''
+Расположение сегментов 7-сегментного дисплея, управляемого микросхемой TM1652,
+в текстовом виде с именами сегментов выглядит так:
+     --a--
+    |     |
+   f|     |b
+    |--g--|
+   e|     |c
+    |     |
+     --d--   .dp (точка)
+Бит 	Назначение сегмента                 Значение
+0 	Сегмент a (верхний горизонтальный)      зависит от производителя
+1 	Сегмент b (верхний правый вертикальный) зависит от производителя
+2 	Сегмент c (нижний правый вертикальный)  зависит от производителя
+3 	Сегмент d (нижний горизонтальный)       зависит от производителя
+4 	Сегмент e (нижний левый вертикальный)   зависит от производителя
+5 	Сегмент f (верхний левый вертикальный)  зависит от производителя
+6 	Сегмент g (средний горизонтальный)      зависит от производителя
+7 	Десятичная точка (dp)                   зависит от производителя
+'''
+
 
 class BaseCharDisplay:
     """Основа для всех представлений символьных дисплеев"""
@@ -17,9 +40,9 @@ class BaseCharDisplay:
         self._controller = controller
         self._cols = controller.get_columns()
         self._rows = controller.get_rows()
-        # сырое значение сегментов символа, заменяет собой символ,
+        # сегменты символа, заменяющие собой символ,
         # который невозможно узнаваемо(!) напечатать в знакоместе.
-        self._non_printable = 0xFF
+        self._np_seg_names = 'adg'
         # если Ложь, то сегмент включается единицей, иначе сегмент включается нулем!
         self._inverse_logic = False
 
@@ -31,15 +54,15 @@ class BaseCharDisplay:
         """если Ложь, то сегмент включается единицей, иначе сегмент включается нулем!"""
         self._inverse_logic = value
 
-    def set_non_printable(self, raw_value: int):
+    def set_non_printable(self, seg_names: str):
         """Устанавливает сырое значение сегментов символа, заменяющий собой символ,
         который невозможно узнаваемо(!) напечатать в знакоместе."""
-        self._non_printable = raw_value
+        self._np_seg_names = seg_names
 
-    def get_non_printable(self) -> int:
+    def get_non_printable(self) -> str:
         """Возвращает сырое значение сегментов символа, заменяющий собой символ,
         который невозможно узнаваемо(!) напечатать в знакоместе."""
-        return self._non_printable
+        return self._np_seg_names
 
     def get_columns(self) -> int:
         """Возвращает кол-во столбцов дисплея."""
@@ -89,12 +112,19 @@ class BaseCharDisplay:
 # Цифры (0-9):
 # 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 # Буквы (в основном заглавные или упрощённые строчные, читаемые однозначно):
-# A, b, C, d, E, F, H, I, J, L, n, o, P, S, U
+# A, b, C, d, E, F, G, H, I, J, L, n, o, P, U
 # Другие символы: дефис ("-"), иногда точка (DP) для десятичных чисел
 
 
 class CharDisplay(BaseCharDisplay):
     """Символьный дисплей"""
+
+    @staticmethod
+    @micropython.viper
+    def _get_power_of_two(n: int) -> int:
+        """Возвращает n-ную степень числа два, где n >= 0."""
+        return 1 << n
+
     @staticmethod
     def gen_chars_with_dp(input_str: str) -> str:
         """Генератор, который перебирает строку символов input_str и выдаёт по одному элементу — либо одиночный символ,
@@ -148,6 +178,95 @@ class CharDisplay(BaseCharDisplay):
         """Инициализация"""
         super().__init__(controller=controller)
         self._alignment = -1
+
+    def get_segment_nbit(self, seg_name: str) -> int:
+        """Возвращает номер бита, соответствующий сегменту с именем seg_name. Имя сегмента имеет длину один символ!
+        Для переопределения в классах-наследниках!"""
+        raise NotImplemented
+
+    @micropython.native
+    def _get_segment_value(self, seg_name) -> int:
+        """Возвращает значение сегмента в байте/слове данных."""
+        return CharDisplay._get_power_of_two(self.get_segment_nbit(seg_name))
+
+    @micropython.native
+    def segments_to_raw(self, segments_on: str) -> int:
+        """
+        Преобразует имена включенных сегментов 7/14-ти сегментного индикатора в одно или двухбайтное число для записи по адресу символа индикатора.
+        :param segments_on - Строка с правильными именами сегментов 7/14-ти сегментного индикатора, которые должны быть включены!
+        :param dp - Десятичная точка, включить, если Истина.
+        :return: Значение для записи по адресу символа 7/14-ти сегментного индикатора!
+        """
+        ret_val = 0
+        for segm_name in segments_on:
+            ret_val |= self._get_segment_value(segm_name)
+        return ret_val
+
+    def get_segments_of_symbol(self, char_with_dp: str) -> str:
+            """Возвращает строку из имен сегментов, которые должны быть включены для отображения символа char.
+            :param char_with_dp - строка длиной один или два символа. если есть второй символ, то им должна быть десятичная точка!
+            :return: строка из имен сегментов, которые должны быть включены для отображения символа char или значение типа int,
+            что означает, что символ не отображается этим дисплеем!
+            Для переопределения в классах-наследниках.
+            """
+            dp_seg_name = 'p'
+            # содержит все цифры и их сегменты. Цифры 0 - 9
+            seg_map_digits = {
+                '0': "abcdef",
+                '1': "bc",
+                '2': "abged",
+                '3': "abgcd",
+                '4': "fgbc",
+                '5': "afgcd",
+                '6': "afgcde",
+                '7': "abc",
+                '8': "abcdefg",
+                '9': "abcdfg",
+            }
+            # содержит все отображаемые буквы и некоторые другие символы
+            segment_map_letters = {
+                'A': 'abcefg',
+                'b': 'cdefg',
+                'C': 'adef',
+                'c': 'deg',
+                'd': 'bcdeg',
+                'E': 'agdef',
+                'F': 'aefg',
+                'G': 'acdef',
+                'H': 'bcefg',
+                'J': 'bcd',
+                'L': 'def',
+                'n': 'ceg',
+                'o': 'cdeg',
+                'r': 'eg',
+                'P': 'abefg',
+                'U': 'bcdef',
+                '-': 'g',
+                '.': dp_seg_name,  # сегмент DP - десятичная точка
+                '_': 'd',
+                '=': 'gd',
+                ' ': '',
+                '|': 'ef',
+                '[': 'defa',
+                ']': 'abcd',
+                '°': 'abgf',  # попытка отобразись символ градуса на скудных семи сегментах
+            }  # segment_map_letters = {
+
+            if not isinstance(char_with_dp, str) or 0 == len(char_with_dp) or len(char_with_dp) > 2:
+                raise ValueError("Ожидается строка длиной 1 или 2.")
+
+            two_char = 2 == len(char_with_dp)
+            # Обработка случая: символ + точка (например, 'A.')
+            if two_char and '.' != char_with_dp[1]:
+                raise ValueError("Если длина равна 2 символам, то вторым символом должна быть '.', десятичная точка!")
+            char = char_with_dp[0]
+            decimal_point = two_char
+            #
+            _map = seg_map_digits if char.isdigit() else segment_map_letters
+            retval = _map.get(char, self.get_non_printable())
+            if decimal_point:
+                retval = retval + dp_seg_name  # добавляю десятичную точку
+            return retval
 
     def set_alignment(self, value: int = -1):
         """Устанавливает выравнивание при выводе текста.

@@ -81,6 +81,7 @@ class VK16K33(ICharDisplayController):
         buf = self._packet
         buf[0] = 2 * x # адрес первого байта знакоместа в памяти дисплея
         bo = 'big' if self._connector.is_big_byteorder() else 'little'
+        #print(f"DBF:char_code: 0x{char_code:x}")
         _loc_buf = char_code.to_bytes(2, bo)
         buf[1] = _loc_buf[0]
         buf[2] = _loc_buf[1]

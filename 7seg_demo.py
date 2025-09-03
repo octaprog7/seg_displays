@@ -11,11 +11,11 @@ from lib_displays.max7219mod import MAX7219
 wait_func = time.sleep_ms
 
 if __name__ == "__main__":
-    # Осторожно с baud rate! Если у вас символы 'прыгают' по дисплею, тогда снижайте этот параметр.
     bi = get_board_info()
     print(bi)
     isESP32C3 = "ESP32C3 module with ESP32C3" in bi.machine
     bus = None
+    # Осторожно с baud rate! Если у вас символы 'прыгают' по дисплею, тогда снижайте этот параметр.
     if isESP32C3:
         bus = SPI(1, baudrate=5_000_000, polarity=0, phase=0, firstbit=SPI.MSB, sck=Pin(4), mosi=Pin(6), miso=Pin(5))
     if "Raspberry Pi Pico" in bi.machine:
