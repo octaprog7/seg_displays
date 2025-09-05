@@ -1,18 +1,6 @@
 """Модуль для работы с индикаторами, состоящими из сегментов(!). VK16K33, HT1621"""
-
-lang = 'en'
-
+from lib_displays.display_controller_mod import ICharDisplayController
 from lib_displays.char_display_mod import CharDisplay
-#from sensor_pack_2.base_sensor import check_value
-
-_lang_dict = None
-
-if 'en' == lang:
-    from lib_displays.en_lang_14_seg import eng_to_14segments
-    _lang_dict = eng_to_14segments
-if 'ru' == lang:
-    from lib_displays.ru_lang_14_seg import ru_to_14segments
-    _lang_dict = ru_to_14segments
 
 
 class VK16K33Display(CharDisplay):
@@ -27,6 +15,19 @@ class VK16K33Display(CharDisplay):
     # p имя сегмента десятичной точки
     _valid_seg_names = "abcdef12hijmlkp"
     _seg_values_map = {c: i for i, c in enumerate(_valid_seg_names)}
+
+    def __init__(self, controller: ICharDisplayController, alpha_letters: dict):
+        """
+
+        :param controller: ссылка на класс, контроллер дисплея
+        :param alpha_letters: ссылка на словарь соответствия букв алфавита и сегментов, отображающих эту букву
+        """
+        if not isinstance(alpha_letters, dict):
+            raise ValueError(f"Неверный тип alpha_letters")
+
+        super().__init__(controller=controller)
+        # словарь хранит соответствия буквы алфавита и сегментов, ее отображающих
+        self._alpha_letters = alpha_letters
 
     def get_segment_nbit(self, seg_name: str) -> int:
         """Возвращает номер бита, соответствующий сегменту с именем seg_name. Имя сегмента имеет длину один символ!"""
@@ -49,7 +50,7 @@ class VK16K33Display(CharDisplay):
         }
         dp_seg_name = 'p'
 
-        segment_map_letters =_lang_dict
+        segment_map_letters =self._alpha_letters
 
         spec_symbols = {
             # спецсимволы и знаки препинания!
