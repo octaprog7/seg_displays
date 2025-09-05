@@ -5,10 +5,22 @@ from seg_displ_utils import get_board_info
 import time
 
 from lib_displays.vk16k33display import VK16K33Display
-#import gc
-
 from sensor_pack_2.bus_service import I2cAdapter
 from lib_displays.vk16k33mod import VK16K33
+
+# используемый язык
+lang = 'en'
+
+_alpha_letters = None
+
+if 'en' == lang:
+    # english letters
+    from lib_displays.en_lang_14_seg import eng_to_14segments
+    _alpha_letters = eng_to_14segments
+if 'ru' == lang:
+    # русские буквы
+    from lib_displays.ru_lang_14_seg import ru_to_14segments
+    _alpha_letters = ru_to_14segments
 
 wait_func = time.sleep_ms
 
@@ -33,7 +45,7 @@ if __name__ == "__main__":
     display_controller = VK16K33(adapter=adapter, address=0x70)
     display_controller.init(columns=4, rows=1)
     display_controller.set_brightness(10)
-    display = VK16K33Display(display_controller)
+    display = VK16K33Display(display_controller, _alpha_letters)
     display.init()
     #
     demo_source_14seg = "0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz"
