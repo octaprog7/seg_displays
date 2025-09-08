@@ -72,9 +72,15 @@
 
 
 # Загрузка ПО в плату
-Загрузите прошивку micropython на плату PyBoard (ESP и т. д.), а затем файлы: 7seg_demo.py, 14seg_demo.py, seg_displ_utils.py, 
+Загрузите прошивку micropython на плату PyBoard (ESP и т. д.), а затем файлы: 7seg_demo.py, 14seg_demo.py, tm1652_demo.py, seg_displ_utils.py, 
 папки sensor_pack_2, lib_displays полностью!
-Затем откройте 7seg_demo.py или 14seg_demo.py, в зависимости какой дисплей вы используете, в своей IDE и запустите/выполните его.
+Затем откройте tm1652_demo.py, 7seg_demo.py или 14seg_demo.py, в зависимости какой дисплей вы используете, в своей IDE и запустите/выполните его.
+
+| Имя дисплея							         | Файл демонстрации работы	 |
+|-----------------------------------------------|---------------------------|
+| WeActStudio.DigitalTubeModule 8.8.8.8	     | tm1652_demo.py		     |
+| HT16K33 0.54" 4 Bit Meter Digital Tube Module | 14seg_demo.py	         |
+| MAX7219 8 bit Digital LED Display Module      | 7seg_demo.py              |	
 
 # Шина I2C
 Если у вас несколько устройств подключено к шине, желательно чтобы для них была только одна пара
