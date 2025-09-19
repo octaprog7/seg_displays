@@ -19,10 +19,10 @@ wait_func = time.sleep_ms
 def run():
     bi = get_board_info()
     print(bi)
-    isESP32C3 = "ESP32C3 module with ESP32C3" in bi.machine
+    is_esp32c3 = "ESP32C3 module with ESP32C3" in bi.machine
     bus = None
     # Осторожно с baud rate! Если у вас символы 'прыгают' по дисплею, тогда снижайте этот параметр.
-    if isESP32C3:
+    if is_esp32c3:
         bus = SPI(1, baudrate=5_000_000, polarity=0, phase=0, firstbit=SPI.MSB, sck=Pin(4), mosi=Pin(6), miso=Pin(5))
     if "Raspberry Pi Pico" in bi.machine:
         bus = SPI(0, baudrate=5_000_000, polarity=0, phase=0, bits=8, firstbit=SPI.MSB, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
