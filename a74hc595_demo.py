@@ -17,17 +17,18 @@ def run():
     #spi = SPI(1, baudrate=1_000_000, polarity=0, phase=0, firstbit=SPI.MSB, bits=8, sck=6, mosi=7, miso=2)
     latch = Pin(8, mode=Pin.OUT, pull=Pin.PULL_UP, value=1)  # Пин Latch (фиксатор данных)
 
-
-    bus = SPI(1, baudrate=1_000_000, polarity=0, phase=0, firstbit=SPI.MSB, bits=8, sck=6, mosi=7, miso=2)
+    # настройки шины для RP2040-Zero !
+    bus = SPI(1, baudrate=5_000_000, polarity=0, phase=0, firstbit=SPI.MSB, bits=8, sck=6, mosi=7, miso=2)
     adapter = SpiAdapter(bus=bus, data_mode=None)
     controller = SPLReg8(adapter=adapter, load_out=latch)
     controller.init(columns=4, rows=1)
     display = ShiftReg8Display(controller)
     display.init()
 
-    display.show_by_pos("3.1415", 3)
+    display.show_by_pos("3.1415")
     wait_func(3_000)
     display.clear()
+    display.show_by_pos("HELP")
     wait_func(3_000)
     # display.show_by_pos("123", 2)
     #wait_func(3_000)
