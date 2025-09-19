@@ -1,10 +1,10 @@
 from collections import namedtuple
 from lib_displays.display_controller_mod import ICharDisplayController
-from sensor_pack_2.base_sensor import check_value
+# from sensor_pack_2.base_sensor import check_value
 import micropython
 
 # свойства символьного дисплея
-base_display_prop = namedtuple("base_display_prop", "columns rows")
+base_display_prop = namedtuple("base_display_prop", "columns rows reverse_index_order partial_update")
 # прямоугольная область
 rect_area = namedtuple("rect_area", "x0 y0 x1 y1")
 
@@ -18,15 +18,15 @@ rect_area = namedtuple("rect_area", "x0 y0 x1 y1")
    e|     |c
     |     |
      --d--   .dp (точка)
-Бит 	Назначение сегмента                 Значение
-0 	Сегмент a (верхний горизонтальный)      зависит от производителя
-1 	Сегмент b (верхний правый вертикальный) зависит от производителя
-2 	Сегмент c (нижний правый вертикальный)  зависит от производителя
-3 	Сегмент d (нижний горизонтальный)       зависит от производителя
-4 	Сегмент e (нижний левый вертикальный)   зависит от производителя
-5 	Сегмент f (верхний левый вертикальный)  зависит от производителя
-6 	Сегмент g (средний горизонтальный)      зависит от производителя
-7 	Десятичная точка (dp)                   зависит от производителя
+ 	Имя сегмента                    Номер Бита
+ 	a (верхний горизонтальный)      зависит от производителя дисплея
+ 	b (верхний правый вертикальный) зависит от производителя дисплея
+ 	c (нижний правый вертикальный)  зависит от производителя дисплея
+ 	d (нижний горизонтальный)       зависит от производителя дисплея
+ 	e (нижний левый вертикальный)   зависит от производителя дисплея
+ 	f (верхний левый вертикальный)  зависит от производителя дисплея
+ 	g (средний горизонтальный)      зависит от производителя дисплея
+ 	dp (Десятичная точка)           зависит от производителя дисплея
 '''
 
 
@@ -43,8 +43,32 @@ class BaseCharDisplay:
         # сегменты символа, заменяющие собой символ,
         # который невозможно узнаваемо(!) напечатать в знакоместе.
         self._np_seg_names = 'adg'
-        # если Ложь, то сегмент включается единицей, иначе сегмент включается нулем!
+        # если Ложь, то сегмент включается единицей, иначе сегмент включается нулем (лучший вариант, общий анод!)!
         self._inverse_logic = False
+        # поддерживает ли класс частичное обновление (когда часть знакомест обновляется, а часть нет)?
+        self._partial_update = False
+        # Порядок выдачи индексов знакомест или кодов символов на шину
+        # прямой порядок, это когда крайне левому знакоместу дисплея соответствует нулевой индекс или нулевой байт в буфере.
+        # Иначе, это когда крайне правому знакоместу дисплея соответствует нулевой индекс или нулевой байт в буфере.
+        self._reverse_index_order = False
+
+    def is_reverse_index(self) -> bool:
+        """порядок выдачи индексов знакомест или кодов символов на шину (для дисплеев, не поддерживающих частичное обновление).
+        Прямой порядок, это когда крайне левому знакоместу дисплея соответствует нулевой индекс или нулевой байт в буфере.
+        Иначе, это когда крайне правому знакоместу дисплея соответствует нулевой индекс или нулевой байт в буфере."""
+        return self._reverse_index_order
+
+    def set_reverse_index(self, value: bool):
+        """Устанавливает значение поля _reverse_index_order. Смотри is_reverse_index."""
+        self._reverse_index_order = value
+
+    def is_partial_update(self) -> bool:
+        """Возвращает признак поддержки классом частичного обновления (когда часть знакомест обновляется, а часть нет)"""
+        return self._partial_update
+
+    def set_partial_update(self, value: bool):
+        """Устанавливает значение поля _partial_update. Смотри is_partial_update."""
+        self._partial_update = value
 
     def is_inverse_logic(self) -> bool:
         """если Ложь, то сегмент включается единицей, иначе сегмент включается нулем!"""
@@ -82,12 +106,13 @@ class BaseCharDisplay:
         raise NotImplemented
 
     def get_display_prop(self) -> base_display_prop:
-        """Возвращает основные свойства дисплея"""
-        return base_display_prop(columns=self.get_columns(), rows=self.get_rows())
+        """Возвращает свойства дисплея"""
+        return base_display_prop(columns=self.get_columns(), rows=self.get_rows(),
+                                 reverse_index_order=self.is_reverse_index(), partial_update=self.is_partial_update())
 
-    def set_alignment(self, value: int = -1):
-        """Устанавливает выравнивание для вывода строки.
-        alignment - выравнивание. -1 - по левому краю; 0 - по центру; 1 - по правому краю."""
+    def set_buf(self, index: int, value: int) -> bytes:
+        """Записывает значение value в буфер по индексу index.
+        Для переопределения в классах-наследниках."""
         raise NotImplemented
 
     def show_by_pos(self, chars: str, x: int, y: int):
@@ -113,7 +138,7 @@ class BaseCharDisplay:
 # 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 # Буквы (в основном заглавные или упрощённые строчные, читаемые однозначно):
 # A, b, C, d, E, F, G, H, I, J, L, n, o, P, U
-# Другие символы: дефис ("-"), иногда точка (DP) для десятичных чисел
+# Другие символы: дефис "-", иногда точка (DP) для десятичных чисел
 
 
 class CharDisplay(BaseCharDisplay):
@@ -125,8 +150,26 @@ class CharDisplay(BaseCharDisplay):
         """Возвращает n-ную степень числа два, где n >= 0."""
         return 1 << n
 
+    def get_order_char_index(self, offset: int = None, count: int = None) -> range:
+        """Возвращает экземпляр класса типа range, со значениями индексов знакомест/(байт в буфере) в правильном порядке их заполнения.
+        В правильном, это в таком, чтобы на дисплее информация была читаема слева-направо.
+        Первому индексу должен соответствовать крайний левый символ.
+        :param offset - если не None, то это начальный индекс в экземпляре класса результата, нужен для дисплеев, поддерживающих частичное обновление.
+        :param count - количество индексов."""
+        if offset is None or offset < 0:
+            offset = 0
+
+        if count is None:
+            count = self.get_columns()
+
+        if count <= 0:
+            # Возвращаем пустой диапазон
+            return range(0, 0)
+
+        return range(count - offset - 1, -1, -1) if self.is_reverse_index() else range(offset, count)
+
     @staticmethod
-    def gen_chars_with_dp(input_str: str) -> str:
+    def gen_chars_with_dp(input_str: str):
         """Генератор, который перебирает строку символов input_str и выдаёт по одному элементу — либо одиночный символ,
         либо символ с десятичной точкой (DP) в виде объединённой строки длиной 2 (например 'А.').
 
@@ -145,7 +188,8 @@ class CharDisplay(BaseCharDisplay):
             - Результат удобно передавать в функцию преобразования символов в коды для семисегментных индикаторов, учитывающих DP.
 
         Аргументы:
-            input_string (str): Входная строка с символами и, опционально, десятичными точками, указанными как '.' после символа.
+            input_string (str): Входная строка с символами и, опционально, десятичными точками, указанными как '.' после символа
+            reverse_order: Если Истина, то строка происходит обход символов 'перевернутой' input_string
 
         Результат:
             Итератор[str]: Последовательность строк длиной 1 (символ без DP) или 2 (символ+'.' для DP)."""
@@ -177,7 +221,7 @@ class CharDisplay(BaseCharDisplay):
     def __init__(self, controller: ICharDisplayController):
         """Инициализация"""
         super().__init__(controller=controller)
-        self._alignment = -1
+        # self.set_non_printable('adg')
 
     def get_segment_nbit(self, seg_name: str) -> int:
         """Возвращает номер бита, соответствующий сегменту с именем seg_name. Имя сегмента имеет длину один символ!
@@ -194,23 +238,25 @@ class CharDisplay(BaseCharDisplay):
         """
         Преобразует имена включенных сегментов 7/14-ти сегментного индикатора в одно или двухбайтное число для записи по адресу символа индикатора.
         :param segments_on - Строка с правильными именами сегментов 7/14-ти сегментного индикатора, которые должны быть включены!
-        :param dp - Десятичная точка, включить, если Истина.
-        :return: Значение для записи по адресу символа 7/14-ти сегментного индикатора!
+        :return: Значение для записи по адресу символа 7/14/хх-ти сегментного индикатора!
         """
+        i_logic = self.is_inverse_logic()
         ret_val = 0
         for segm_name in segments_on:
             ret_val |= self._get_segment_value(segm_name)
-        return ret_val
+        # В зависимости от схемы включения сегментного индикатора (общий анод или общий катод)
+        # Общий анод - сегмент включается нулем. Общий катод - сегмент включается единицей.
+        return ~ret_val if i_logic else ret_val
 
     def get_segments_of_symbol(self, char_with_dp: str) -> str:
             """Возвращает строку из имен сегментов, которые должны быть включены для отображения символа char.
-            :param char_with_dp - строка длиной один или два символа. если есть второй символ, то им должна быть десятичная точка!
-            :return: строка из имен сегментов, которые должны быть включены для отображения символа char или значение типа int,
+            :param char_with_dp - строка длиной один или два символа. Если есть второй символ, то им должна быть десятичная точка!
+            :return: Строка из имен сегментов, которые должны быть включены для отображения символа char или значение типа int,
             что означает, что символ не отображается этим дисплеем!
             Для переопределения в классах-наследниках.
             """
             dp_seg_name = 'p'
-            # содержит все цифры и их сегменты. Цифры 0 - 9
+            # Содержит все цифры и их сегменты. Цифры 0 - 9
             seg_map_digits = {
                 '0': "abcdef",
                 '1': "bc",
@@ -268,12 +314,35 @@ class CharDisplay(BaseCharDisplay):
                 retval = retval + dp_seg_name  # добавляю десятичную точку
             return retval
 
-    def set_alignment(self, value: int = -1):
-        """Устанавливает выравнивание при выводе текста.
-        :param value - выравнивание. -1 - по левому краю; 0 - по центру; 1 - по правому краю"""
-        check_value(value, range(-1, 2), f"Неверное значение выравнивания: {value}.")
-        self._alignment = value
-
-    def get_alignment(self) -> int:
-        """Возвращает выравнивание."""
-        return self._alignment
+    def show_by_pos(self, chars: str, x: int = 0, y: int = 0):
+        """Выводит на дисплей коды символов из chars.
+        :param chars - отображаемая на дисплее строка (кол-во символов указывается в конструкторе);
+        :param x - полиция символа по горизонтали слева на право. Первая(крайне левая) позиция имеет значение 0.
+        :param y - не используется!
+        """
+        l_buf = None
+        gen = CharDisplay.gen_chars_with_dp
+        r = self.get_order_char_index(offset=x)
+        p_upd = self.is_partial_update()
+        # print(f"DBG:r: {r}")
+        it_indexes = iter(r)
+        for char_with_dp in gen(chars):
+            try:
+                # print(f"DBG:{char_with_dp}")
+                segments = self.get_segments_of_symbol(char_with_dp)
+                # Обработка исключения — относительно дорогая операция в плане времени.
+                index = next(it_indexes, None)  # None - для того, чтобы избежать выброса исключения!
+                # print(f"DBG:{index}")
+                if index is None:
+                    break
+                symb_code = self.segments_to_raw(segments)
+                if not p_upd:
+                    l_buf = self.set_buf(index, symb_code)
+                else:
+                    self._controller.set_char(symb_code, index, 0)
+            except StopIteration:
+                print(f"DBG:show_by_pos:StopIteration")
+                pass
+        # посылка готова к отправке
+        if not p_upd:
+            self._controller.set_all(l_buf)

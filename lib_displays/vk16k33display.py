@@ -6,12 +6,12 @@ from lib_displays.char_display_mod import CharDisplay
 class VK16K33Display(CharDisplay):
     """Символьный дисплей, на основе VK16K33. 4 символа в один ряд/строку."""
 
-    # имена сегментов 14-ти сегментного индикатора. 1-g1, 2-g2
-    # имена сегментов расположены в порядке их расположения в бейте результата.
-    # например, имя сегмента 'a' находится в позиции 0, строки valid_seg_names, что дает значение 2^0 = 1
-    # например, имя сегмента 'd' находится в позиции 3, строки valid_seg_names, что дает значение 2^3 = 8
-    # например, имя сегмента '2'-g2 находится в позиции 7, строки valid_seg_names, что дает значение 2^7 = 128
-    # сегменты "abcdef12" образуют младший байт, сегменты "hijmlk" образуют старший байт значения.
+    # Имена сегментов 14-ти сегментного индикатора. 1-g1, 2-g2.
+    # Имена сегментов расположены в порядке их расположения в бейте результата.
+    # Например, имя сегмента 'a' находится в позиции 0, строки valid_seg_names, что дает значение 2^0 = 1.
+    # Например, имя сегмента 'd' находится в позиции 3, строки valid_seg_names, что дает значение 2^3 = 8.
+    # Например, имя сегмента '2'-g2 находится в позиции 7, строки valid_seg_names, что дает значение 2^7 = 128.
+    # Сегменты "abcdef12" образуют младший байт, сегменты "hijmlk" образуют старший байт значения.
     # p имя сегмента десятичной точки
     _valid_seg_names = "abcdef12hijmlkp"
     _seg_values_map = {c: i for i, c in enumerate(_valid_seg_names)}
@@ -92,25 +92,9 @@ class VK16K33Display(CharDisplay):
         # все остальные символы
         return spec_symbols.get(char, self.get_non_printable())
 
-
-    def show_by_pos(self, chars: str, x: int = 0, y: int = 0):
-        """Выводит на дисплей коды символов из chars.
-        :param chars - строка для отображения;
-        :param x - индекс знакоместа, с которого начинается отображение первого символа chars;
-        :param y - не используется, так как всего 8 знакомест;
-        Хотите изменять положение символа, формируйте строку заранее!"""
-        gen = CharDisplay.gen_chars_with_dp
-        val_rng = range(self.get_columns())
-        get_segments = self.get_segments_of_symbol
-        seg_to_raw = self.segments_to_raw
-        for cnt, char_with_dp in enumerate(gen(chars)):
-            pos = x + cnt
-            if not pos in val_rng:
-                break
-            segments = get_segments(char_with_dp)
-            symb_code = seg_to_raw(segments)
-            self._controller.set_char(symb_code, pos, 0)
-
     def init(self, value: int = 0):
         """Инициализация"""
         self.set_non_printable('12ad')
+        self.set_inverse_logic(False)
+        self.set_reverse_index(False)
+        self.set_partial_update(True)

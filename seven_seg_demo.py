@@ -1,4 +1,10 @@
 """Работа с дисплеем на основе MAX7219. 8 знакомест. SPI."""
+
+# Если вы запустите этот пример работы с дисплеем на основе MAX7219 не используя IDE, например из main.py, то
+# начальное время вы увидите, как 00-00-00. Значение времени устанавливается в плату, под управлением MicroPython, извне.
+# В данном случае из IDE!
+# Для работы со временем без неожиданностей, нужен внешний аппаратный RTC с батареей питания типа CRxxxx.
+
 from machine import Pin, SPI
 from seg_displ_utils import get_board_info
 import time
@@ -10,7 +16,7 @@ from lib_displays.max7219mod import MAX7219
 
 wait_func = time.sleep_ms
 
-if __name__ == "__main__":
+def run():
     bi = get_board_info()
     print(bi)
     isESP32C3 = "ESP32C3 module with ESP32C3" in bi.machine
@@ -23,6 +29,9 @@ if __name__ == "__main__":
 
     if bus is None:
         raise ValueError("Шина не настроена!")
+    
+    lc = time.localtime()
+    print(f"local time: {lc}")
 
     #print(bus)
     adapter = SpiAdapter(bus=bus, data_mode=None)
@@ -34,8 +43,10 @@ if __name__ == "__main__":
     # установка яркости
     display_controller.set_brightness(9)
     display = MAX7219Display(display_controller)
-    # Pi demo
-    display.show_by_pos("3.1415926")
+    display.init()
+    display.clear()
+    # показ числа Пи на дисплее
+    display.show_by_pos("3.1415926", 3)
     wait_func(3_000)
     # Time demo
     spacer = '-'
@@ -43,7 +54,7 @@ if __name__ == "__main__":
     for _ in range(15_000):
         lc = time.localtime()
         slc = f"{lc[3]:02}{spacer}{lc[4]:02}{spacer}{lc[5]:02}"
-        display.show_by_pos(slc, 0, 0)
+        display.show_by_pos(slc)
         wait_func(1000)
         if isESP32C3:
             # принудительная уборка мусора для ESP32C3 core
@@ -56,3 +67,7 @@ if __name__ == "__main__":
                 print("collect")
         #obj_count = gc.collect()	# без вызова collect() у меня код продолжал работать, а дисплей ничего не отображал! Выброса исключений не было!
         # print(f"obj_count: {obj_count}")
+
+
+if __name__ == "__main__":
+    run()

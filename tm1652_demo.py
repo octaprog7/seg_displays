@@ -33,12 +33,14 @@ if __name__ == "__main__":
     # вывод платы tx вы должны подключить к ВХоду дисплея RX!!!
     # и питание +5 V, GND! Преобразователь уровня не нужен!
     uart = UART(0, baudrate=19200, bits=8, parity=1, stop=1, tx=Pin(16))
-    controller = TM1652(uart, 7)
-    controller.init(4, 1)
+    controller = TM1652(uart=uart, delay_ms=7)
+    controller.init(columns=4, rows=1)
     tube = WADigitalTube(controller)
     tube.init()
     tube.show_by_pos('Erro')
-    time.sleep_ms(5_000)
+    time.sleep_ms(3_000)
+    tube.clear()
+    time.sleep_ms(2_000)
     # отображение местного времени на дисплее
     for _ in range(100):
         t = time.localtime()
